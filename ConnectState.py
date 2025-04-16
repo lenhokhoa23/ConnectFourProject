@@ -109,6 +109,22 @@ class ConnectState:
 
         return GameMeta.OUTCOMES['one'] if self.check_win() == GameMeta.PLAYERS['one'] else GameMeta.OUTCOMES['two']
 
+    def would_lose(self, col, player):
+        temp_state = deepcopy(self)
+        
+        temp_state.move(col)
+  
+        opponent = (GameMeta.PLAYERS['two'] if player == GameMeta.PLAYERS['one']
+                    else GameMeta.PLAYERS['one'])
+        
+        for opp_move in temp_state.get_legal_moves():
+            test_state = deepcopy(temp_state)
+            test_state.move(opp_move) 
+            if test_state.check_win() == opponent:
+                return True
+        
+        return False
+
     def print(self):
         print('=============================')
 

@@ -173,7 +173,7 @@ class Connect4MCTSAgent:
             turn: winner turn
             outcome: outcome of the rollout
         """
-        reward = 0 if outcome == turn else 1
+        reward = 1 if outcome == turn else 0
 
         while node is not None:
             node.N += 1

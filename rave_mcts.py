@@ -6,6 +6,7 @@ from queue import Queue
 from random import choice
 from meta import GameMeta, MCTSMeta
 from ConnectState import ConnectState
+from mcts_mark_2 import Node, Connect4MCTSAgent
 
 class RaveNode(Node):
     """
@@ -33,7 +34,7 @@ class RaveNode(Node):
             return (1 - alpha) * UCT + alpha * AMAF
 
 
-class RaveMctsAgent(UctMctsAgent):
+class RaveMctsAgent(Connect4MCTSAgent):
 
     def __init__(self, state=ConnectState()):
         self.root_state = deepcopy(state)
@@ -74,8 +75,8 @@ class RaveMctsAgent(UctMctsAgent):
 
         while time.time() - start_time < time_budget:
             node, state = self.select_node()
-            outcome, black_rave_pts, white_rave_pts = self.roll_out(state)
-            self.backup(node, state.to_play, outcome, black_rave_pts, white_rave_pts)
+            outcome, black_cols, white_cols = self.roll_out(state)  # <-- FIXED
+            self.backup(node, state.to_play, outcome, black_cols, white_cols)  # <-- FIXED
             num_rollouts += 1
 
         self.run_time = time.time() - start_time
@@ -89,14 +90,12 @@ class RaveMctsAgent(UctMctsAgent):
         node = self.root
         state = deepcopy(self.root_state)
 
-        # Descend to the maximum value node, breaking ties randomly
         while len(node.children) != 0:
             max_value = max(node.children.values(), key=lambda n: n.value).value
             max_nodes = [n for n in node.children.values() if n.value == max_value]
             node = choice(max_nodes)
             state.move(node.move)
 
-            # If the node hasn't been visited, return it
             if node.N == 0:
                 return node, state
 
@@ -127,49 +126,49 @@ class RaveMctsAgent(UctMctsAgent):
         Simulate a random game except for the critical cells, then return the winner.
         Also returns the critical points for each player.
         """
+        black_cols = [] 
+        white_cols = [] 
         moves = state.get_legal_moves()
         while not state.game_over():
-            state.move(random.choice(moves))
-            moves.remove(state.last_played[1])
+            if not moves:
+                break
+            move = random.choice(moves)
+            state.move(move)
+            if state.height[move] < 0:
+                moves.remove(move)            
+            current_player = state.to_play
+            if current_player == GameMeta.PLAYERS['one']:
+                black_cols.append(move)
+            else:
+                white_cols.append(move)
 
-        black_rave_pts = []
-        white_rave_pts = []
+        return state.get_outcome(), black_cols, white_cols
 
-        # Record positions of critical cells
-        for x in range(GameMeta.ROWS):
-            for y in range(GameMeta.COLS):
-                if state.board[x][y] == GameMeta.PLAYERS['one']:
-                    black_rave_pts.append((x, y))
-                elif state.board[x][y] == GameMeta.PLAYERS['two']:
-                    white_rave_pts.append((x, y))
-
-        return state.get_outcome(), black_rave_pts, white_rave_pts
-
-    def backup(self, node: RaveNode, turn: int, outcome: int, black_rave_pts: list, white_rave_pts: list) -> None:
+    def backup(self, node: RaveNode, turn: int, outcome: int, black_cols: list, white_cols: list) -> None:
         """
         Update the statistics of nodes along the path from the leaf to the root to reflect the outcome.
         """
         reward = 0 if outcome == turn else 1
-
         while node is not None:
-            # Update RAVE statistics for the current player
             if turn == GameMeta.PLAYERS['one']:
-                for point in black_rave_pts:
-                    if point in node.children:
-                        node.children[point].Q_RAVE += -reward
-                        node.children[point].N_RAVE += 1
+                for col in black_cols:
+                    if col in node.children:
+                        node.children[col].Q_RAVE += (1 - reward)
+                        node.children[col].N_RAVE += 1
             else:
-                for point in white_rave_pts:
-                    if point in node.children:
-                        node.children[point].Q_RAVE += -reward
-                        node.children[point].N_RAVE += 1
-
+                for col in white_cols:
+                    if col in node.children:
+                        node.children[col].Q_RAVE += (1 - reward)
+                        node.children[col].N_RAVE += 1
             node.N += 1
             node.Q += reward
-            turn = GameMeta.PLAYERS['two'] if turn == GameMeta.PLAYERS['one'] else GameMeta.PLAYERS['one']
-            reward = -reward
             node = node.parent
-    
+            if outcome == GameMeta.OUTCOMES['draw']:
+                reward = 0
+            else:
+                reward = 1 - reward
+            turn = (GameMeta.PLAYERS['two'] if turn == GameMeta.PLAYERS['one'] else GameMeta.PLAYERS['one'])
+        
     def best_move(self) -> tuple:
         """
         Return the best move according to the most simulations, breaking ties randomly.
@@ -188,44 +187,42 @@ class DecisiveMoveMctsAgent(RaveMctsAgent):
     Decisive Move MCTS Agent for Connect Four. Prioritizes playing critical moves first.
     """
     def roll_out(self, state: ConnectState) -> tuple:
+        black_cols = []
+        white_cols = []
+
+        # Single call to get_legal_moves
         moves = state.get_legal_moves()
-        good_moves = moves.copy()
-        good_opponent_moves = moves.copy()
-        to_play = state.to_play
 
-        while state.game_over() == False:
+        # We track "good_moves" for the current player, and "good_opponent" for the other
+        # but we also need a 'done' flag in each iteration
+        while not state.game_over() and moves:
             done = False
-            while len(good_moves) > 0 and not done:
-                move = choice(good_moves)
-                good_moves.remove(move)
-                if not state.would_lose(move, to_play):
-                    state.move(move)
-                    moves.remove(move)
-                    if move in good_opponent_moves:
-                        good_opponent_moves.remove(move)
-                    done = True
+            to_play = state.to_play
 
-            if not done:
-                move = choice(moves)
-                state.move(move)
-                moves.remove(move)
-                if move in good_opponent_moves:
-                    good_opponent_moves.remove(move)
+            # Build a list of "safe moves"
+            safe_moves = [m for m in moves if not state.would_lose(m, to_play)]
 
-            good_moves, good_opponent_moves = good_opponent_moves, good_moves
+            if safe_moves:
+                chosen_move = random.choice(safe_moves)
+                done = True
+            else:
+                # If no safe moves exist, pick random
+                chosen_move = random.choice(moves)
 
-        black_rave_pts = []
-        white_rave_pts = []
+            current_player = state.to_play
+            state.move(chosen_move)
 
-        for x in range(GameMeta.ROWS):
-            for y in range(GameMeta.COLS):
-                if state.board[x][y] == GameMeta.PLAYERS["one"]:
-                    black_rave_pts.append((x, y))
-                elif state.board[x][y] == GameMeta.PLAYERS["two"]:
-                    white_rave_pts.append((x, y))
+            if state.height[chosen_move] < 0:
+                moves.remove(chosen_move)
 
-        return state.get_outcome(), black_rave_pts, white_rave_pts
+            # Record the column for RAVE
+            if current_player == GameMeta.PLAYERS['one']:
+                black_cols.append(chosen_move)
+            else:
+                white_cols.append(chosen_move)
 
+        outcome = state.get_outcome()
+        return outcome, black_cols, white_cols
 
 class LGRMctsAgent(RaveMctsAgent):
     """
@@ -242,64 +239,68 @@ class LGRMctsAgent(RaveMctsAgent):
         self.black_reply = {}
 
     def roll_out(self, state: ConnectState) -> tuple:
+        black_cols = []
+        white_cols = []
+
         moves = state.get_legal_moves()
-        first = state.to_play
-        if first == GameMeta.PLAYERS["one"]:
+
+        first_player = state.to_play
+        if first_player == GameMeta.PLAYERS['one']:
             current_reply = self.black_reply
             other_reply = self.white_reply
         else:
             current_reply = self.white_reply
             other_reply = self.black_reply
-        black_moves = []
-        white_moves = []
+
         last_move = None
 
-        while state.game_over() == False:
+        while not state.game_over() and moves:
+            # If we have a "last good reply" to the opponent's last move:
             if last_move in current_reply:
-                move = current_reply[last_move]
-                if move not in moves or random() > MCTSMeta.RANDOMNESS:
-                    move = choice(moves)
+                chosen_move = current_reply[last_move]
+                # If that chosen move is no longer legal, or random fails, pick random
+                if (chosen_move not in moves) or (random.random() > MCTSMeta.RANDOMNESS):
+                    chosen_move = random.choice(moves)
             else:
-                move = choice(moves)
-            if state.to_play == GameMeta.PLAYERS["one"]:
-                black_moves.append(move)
-            else:
-                white_moves.append(move)
+                chosen_move = random.choice(moves)
 
+            current_player = state.to_play
+            state.move(chosen_move)
+            if state.height[chosen_move] < 0:
+                moves.remove(chosen_move)
+
+            # Record columns
+            if current_player == GameMeta.PLAYERS['one']:
+                black_cols.append(chosen_move)
+            else:
+                white_cols.append(chosen_move)
+
+            # Swap which reply table is "current" vs "other"
             current_reply, other_reply = other_reply, current_reply
-            state.move(move)
-            moves.remove(move)
-            last_move = move
+            last_move = chosen_move
 
-        black_rave_pts = []
-        white_rave_pts = []
+        outcome = state.get_outcome()
 
-        for x in range(GameMeta.ROWS):
-            for y in range(GameMeta.COLS):
-                if state.board[x][y] == GameMeta.PLAYERS["one"]:
-                    black_rave_pts.append((x, y))
-                elif state.board[x][y] == GameMeta.PLAYERS["two"]:
-                    white_rave_pts.append((x, y))
+        # If black (player one) wins, we store "last good replies" for black
+        if outcome == GameMeta.PLAYERS["one"]:
+            # If black started, black_moves were black_cols
+            # We'll pair each white_cols[i] with black_cols[i+offset] if possible
+            offset = (1 if first_player == GameMeta.PLAYERS["one"] else 0)
+            skip = (1 if state.to_play == GameMeta.PLAYERS["one"] else 0)
+            for i in range(len(white_cols) - skip):
+                w_move = white_cols[i]
+                # black_cols[i + offset] might exist
+                if i + offset < len(black_cols):
+                    self.black_reply[w_move] = black_cols[i + offset]
+        elif outcome == GameMeta.PLAYERS["two"]:
+            offset = (1 if first_player == GameMeta.PLAYERS["two"] else 0)
+            skip = (1 if state.to_play == GameMeta.PLAYERS["two"] else 0)
+            for i in range(len(black_cols) - skip):
+                b_move = black_cols[i]
+                if i + offset < len(white_cols):
+                    self.white_reply[b_move] = white_cols[i + offset]
 
-        offset = 0
-        skip = 0
-        if state.get_outcome() == GameMeta.PLAYERS["one"]:
-            if first == GameMeta.PLAYERS["one"]:
-                offset = 1
-            if state.to_play == GameMeta.PLAYERS["one"]:
-                skip = 1
-            for i in range(len(white_moves) - skip):
-                self.black_reply[white_moves[i]] = black_moves[i + offset]
-        else:
-            if first == GameMeta.PLAYERS["two"]:
-                offset = 1
-            if state.to_play == GameMeta.PLAYERS["two"]:
-                skip = 1
-            for i in range(len(black_moves) - skip):
-                self.white_reply[black_moves[i]] = white_moves[i + offset]
-
-        return state.get_outcome(), black_rave_pts, white_rave_pts
-
+        return outcome, black_cols, white_cols
 
 class PoolRaveMctsAgent(RaveMctsAgent):
     """
@@ -316,65 +317,56 @@ class PoolRaveMctsAgent(RaveMctsAgent):
         self.white_rave = {}
 
     def roll_out(self, state: ConnectState) -> tuple:
+        black_cols = []
+        white_cols = []
+
         moves = state.get_legal_moves()
-        black_rave_moves = sorted(self.black_rave.keys(), key=lambda cell: self.black_rave[cell])
-        white_rave_moves = sorted(self.white_rave.keys(), key=lambda cell: self.white_rave[cell])
-        black_pool = []
-        white_pool = []
 
-        # Fill the pool with high-impact moves
-        i = 0
-        while len(black_pool) < MCTSMeta.POOLRAVE_CAPACITY and i < len(black_rave_moves):
-            if black_rave_moves[i] in moves:
-                black_pool.append(black_rave_moves[i])
-            i += 1
-        i = 0
-        while len(white_pool) < MCTSMeta.POOLRAVE_CAPACITY and i < len(white_rave_moves):
-            if white_rave_moves[i] in moves:
-                white_pool.append(white_rave_moves[i])
-            i += 1
+        def black_score(col): return self.black_rave.get(col, 0)
+        def white_score(col): return self.white_rave.get(col, 0)
 
-        while state.game_over() == False:
-            move = None
-            if len(black_pool) > 0 and state.to_play == GameMeta.PLAYERS["one"]:
-                move = choice(black_pool)
-            elif len(white_pool) > 0:
-                move = choice(white_pool)
+        black_sorted = sorted(moves, key=black_score, reverse=True)
+        white_sorted = sorted(moves, key=white_score, reverse=True)
+        black_pool = black_sorted[:MCTSMeta.POOLRAVE_CAPACITY]
+        white_pool = white_sorted[:MCTSMeta.POOLRAVE_CAPACITY]
 
-            if random() > MCTSMeta.RANDOMNESS or not move or move not in moves:
-                move = choice(moves)
+        while not state.game_over() and moves:
+            current_player = state.to_play
+            if current_player == GameMeta.PLAYERS["one"]:
+                col = None
+                if black_pool:
+                    col = random.choice(black_pool)
+                if (not col) or (col not in moves) or (random.random() > MCTSMeta.RANDOMNESS):
+                    col = random.choice(moves)
+            else:
+                col = None
+                if white_pool:
+                    col = random.choice(white_pool)
+                if (not col) or (col not in moves) or (random.random() > MCTSMeta.RANDOMNESS):
+                    col = random.choice(moves)
 
-            state.move(move)
-            moves.remove(move)
+            state.move(col)
+            if state.height[col] < 0:
+                moves.remove(col)
 
-        black_rave_pts = []
-        white_rave_pts = []
+            if current_player == GameMeta.PLAYERS["one"]:
+                black_cols.append(col)
+            else:
+                white_cols.append(col)
 
-        for x in range(GameMeta.ROWS):
-            for y in range(GameMeta.COLS):
-                if state.board[x][y] == GameMeta.PLAYERS["one"]:
-                    black_rave_pts.append((x, y))
-                    if state.get_outcome() == GameMeta.PLAYERS["one"]:
-                        if (x, y) in self.black_rave:
-                            self.black_rave[(x, y)] += 1
-                        else:
-                            self.black_rave[(x, y)] = 1
-                    else:
-                        if (x, y) in self.black_rave:
-                            self.black_rave[(x, y)] -= 1
-                        else:
-                            self.black_rave[(x, y)] = -1
-                elif state.board[x][y] == GameMeta.PLAYERS["two"]:
-                    white_rave_pts.append((x, y))
-                    if state.get_outcome() == GameMeta.PLAYERS["two"]:
-                        if (x, y) in self.white_rave:
-                            self.white_rave[(x, y)] += 1
-                        else:
-                            self.white_rave[(x, y)] = 1
-                    else:
-                        if (x, y) in self.white_rave:
-                            self.white_rave[(x, y)] -= 1
-                        else:
-                            self.white_rave[(x, y)] = -1
+        outcome = state.get_outcome()
 
-        return state.get_outcome(), black_rave_pts, white_rave_pts
+        if outcome == GameMeta.PLAYERS["one"]:
+            for col in black_cols:
+                self.black_rave[col] = self.black_rave.get(col, 0) + 1
+            for col in white_cols:
+                self.white_rave[col] = self.white_rave.get(col, 0) - 1
+        elif outcome == GameMeta.PLAYERS["two"]:
+            for col in white_cols:
+                self.white_rave[col] = self.white_rave.get(col, 0) + 1
+            for col in black_cols:
+                self.black_rave[col] = self.black_rave.get(col, 0) - 1
+        else:
+            pass
+
+        return outcome, black_cols, white_cols

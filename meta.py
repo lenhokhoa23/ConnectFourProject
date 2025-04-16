@@ -13,7 +13,7 @@ class GameMeta:
 
 class MCTSMeta:
     EXPLORATION = math.sqrt(2)
-    RAVE_CONST = 300
+    RAVE_CONST = 50
     RANDOMNESS = 0.5
     POOLRAVE_CAPACITY = 10
     K_CONST = 10
