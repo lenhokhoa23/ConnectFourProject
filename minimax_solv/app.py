@@ -59,6 +59,10 @@ except Exception as e:
     print(f"CRITICAL ERROR: Failed to initialize AI Solver: {e}", file=sys.stderr)
     solver = None
 
+@app.get("/api/test")
+async def health_check():
+    return {"status": "ok", "message": "Server is running"}
+
 @app.post("/api/connect4-move", response_model=AIResponse)
 async def make_move(game_state: GameState) -> AIResponse:
     if solver is None:
