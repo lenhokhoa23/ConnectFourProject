@@ -2,7 +2,6 @@ FROM python:3.12.6
 
 WORKDIR /app
 
-# Cài đặt trình biên dịch C++ (g++) và các công cụ cần thiết
 RUN apt-get update && apt-get install -y \
     build-essential \
     g++ \
@@ -10,31 +9,26 @@ RUN apt-get update && apt-get install -y \
 
 ENV PYTHONUNBUFFERED=1
 
-# Copy các file source C++ và header vào trước
-COPY Position.hpp ./
-COPY Solver.hpp ./
-COPY MoveSorter.hpp ./
-COPY TranspositionTable.hpp .
-# COPY uint_t.hpp ./ # Nếu có file riêng và cần thiết
-COPY Solver.cpp ./
-COPY InteractiveSolver.cpp ./ 
+COPY Position.hpp Solver.hpp MoveSorter.hpp TranspositionTable.hpp ./
+COPY Solver.cpp InteractiveSolver.cpp ./ 
 
-# Biên dịch C++ bên trong Docker
-# Đặt tên file output là 'interactive_solver' (không có .exe cho Linux)
-RUN g++ InteractiveSolver.cpp Solver.cpp -o interactive_solver -std=c++17 -m64 -O2
+# Biên dịch C++
+RUN g++ InteractiveSolver.cpp Solver.cpp -o InteractiveSolver -std=c++17 -m64 -O2 -Wall
+RUN chmod +x ./InteractiveSolver
 
-# Cấp quyền thực thi cho file vừa biên dịch
-RUN chmod +x ./interactive_solver 
-
-# Copy các file của ứng dụng Python
+# Bây giờ copy các file của ứng dụng Python
+# Nếu app.py và requirements.txt cũng nằm trong thư mục gốc dự án của bạn
 COPY requirements.txt .
-RUN pip install --upgrade pip
-RUN pip install -r requirements.txt
-COPY app.py .
-# COPY các file Python khác nếu có
+COPY app.py . 
+# (Nếu bạn có các thư mục con cho Python, COPY chúng vào)
 
-# EXPOSE $PORT (PORT sẽ được truyền vào khi chạy container)
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir -r requirements.txt
+
+# EXPOSE $PORT (Biến PORT thường được inject bởi môi trường deploy như Cloud Run)
+# Nếu chạy local, bạn có thể hardcode port ở CMD hoặc truyền vào khi docker run
+# Ví dụ: EXPOSE 8000
 
 # Khởi chạy ứng dụng với uvicorn
-# Sửa C_PROCESS_EXEC trong app.py thành "./interactive_solver"
+# Đảm bảo app.py của bạn có C_PROCESS_EXEC = "./interactive_solver"
 CMD uvicorn app:app --host 0.0.0.0 --port $PORT
