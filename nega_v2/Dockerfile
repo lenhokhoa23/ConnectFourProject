@@ -13,6 +13,7 @@ ENV PYTHONUNBUFFERED=1
 
 
 COPY requirements.txt .
+RUN chmod +x ./InteractiveSolver.exe 
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
