@@ -145,9 +145,11 @@ class AIResponse(BaseModel):
 
 # Giữ nguyên đường dẫn endpoint này nếu nó đã hoạt động trên Render trước đó
 # Nếu nền tảng tự động thêm /api/connect4-move, bạn cần kiểm tra lại
-@app.post("/api/get_ai_move", response_model=AIResponse) 
+@app.post("/api/connect4-move", response_model=AIResponse) # SỬA THÀNH ĐƯỜNG DẪN MÀ NỀN TẢNG GỢI Ý
 async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
     request_received_time = time.time()
+    print(f"Received request for /api/connect4-move for player {request_data.current_player}", file=sys.stderr)
+
     print(f"Received request for /api/get_ai_move for player {request_data.current_player}", file=sys.stderr)
     # In ra is_new_game và valid_moves để kiểm tra (tùy chọn)
     print(f"is_new_game: {request_data.is_new_game}", file=sys.stderr)
