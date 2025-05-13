@@ -14,6 +14,7 @@ COPY Solver.cpp InteractiveSolver.cpp ./
 
 # Biên dịch C++
 RUN g++ InteractiveSolver.cpp Solver.cpp -o InteractiveSolver -std=c++17 -m64 -O2 -Wall
+RUN ls -l /app  
 RUN chmod +x ./InteractiveSolver
 
 # Bây giờ copy các file của ứng dụng Python
