@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Body
-import random # Giữ lại để có thể dùng làm fallback nếu cần thiết nhất
+import random
 import uvicorn
 import os
 import subprocess
@@ -9,83 +9,78 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import sys 
 import time 
-import fcntl # Thêm import này cho non-blocking stderr read trên Linux/macOS
+import fcntl
 
-# --- Cấu hình C++ Process ---
-C_PROCESS_EXEC = "./InteractiveSolver" # Tên file thực thi C++ của bạn (đã được build bởi Dockerfile)
+C_PROCESS_EXEC = "./InteractiveSolver" 
 cpp_process: Optional[subprocess.Popen] = None
 
+# lifespan giữ nguyên như phiên bản trước (đã có sửa lỗi stderr None và non-blocking read)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global cpp_process
     print(f"App startup: Starting C++ process {C_PROCESS_EXEC}...")
     cpp_ready = False
     try:
-        # Thiết lập môi trường để stdout/stderr của Python không bị buffer (nếu cần thiết)
-        # os.environ['PYTHONUNBUFFERED'] = '1' # Đã set trong Dockerfile, không cần ở đây
-
         cpp_process = subprocess.Popen(
             [C_PROCESS_EXEC],
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, 
-            text=True, # Giúp làm việc với string dễ hơn
-            bufsize=1, # Line buffering
-            universal_newlines=True # Xử lý các loại newline
+            text=True, 
+            bufsize=1, 
+            universal_newlines=True 
         )
         print(f"C++ process started with PID: {cpp_process.pid}")
 
-        # Đặt stderr của C++ process ở chế độ non-blocking để readline không bị kẹt
         if cpp_process.stderr:
             fd = cpp_process.stderr.fileno()
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
 
         timeout_start = time.time()
-        startup_timeout = 20 # Tăng timeout một chút cho C++ khởi động và báo READY
+        startup_timeout = 20 
 
         while time.time() - timeout_start < startup_timeout:
-            if cpp_process.poll() is not None: # Kiểm tra process có thoát sớm không
+            if cpp_process.poll() is not None: 
                 print("C++ process exited prematurely during startup.", file=sys.stderr)
-                # Đọc phần còn lại của stdout và stderr nếu có
                 stdout_dump = cpp_process.stdout.read() if cpp_process.stdout else ""
-                stderr_dump = cpp_process.stderr.read() if cpp_process.stderr else "" # Đọc từ non-blocking stderr
+                stderr_dump = cpp_process.stderr.read() if cpp_process.stderr else "" 
                 if stdout_dump: print(f"C++ STDOUT DUMP ON FAILURE: {stdout_dump}", file=sys.stderr)
                 if stderr_dump: print(f"C++ STDERR DUMP ON FAILURE: {stderr_dump}", file=sys.stderr)
                 cpp_process = None 
                 break
 
             line = ""
-            if cpp_process.stderr: # Chỉ đọc nếu stderr tồn tại
+            if cpp_process.stderr: 
                 try:
                     line = cpp_process.stderr.readline().strip()
-                except BlockingIOError: # Xảy ra nếu không có gì để đọc ở non-blocking mode
-                    time.sleep(0.1) # Chờ một chút rồi thử lại
+                except BlockingIOError: 
+                    time.sleep(0.1) 
                     continue 
                 except Exception as e_read:
                     print(f"Exception reading stderr: {e_read}", file=sys.stderr)
                     time.sleep(0.1)
                     continue
             
-            if line: # Nếu đọc được một dòng
+            if line: 
                 print(f"C++_STDERR: {line}", file=sys.stderr) 
                 if "READY" in line:
                     print("C++ process reported READY.")
                     cpp_ready = True
                     break
-                if "FATAL_ERROR" in line.upper() or "ERROR:" in line.upper(): # Thêm "ERROR:" để bắt lỗi chung
+                if "FATAL_ERROR" in line.upper() or "ERROR:" in line.upper(): 
                     print("C++ process reported an error during startup via stderr.", file=sys.stderr)
                     break 
-            else: # Nếu không đọc được dòng nào (readline trả về rỗng) và process chưa thoát
-                time.sleep(0.1) # Chờ một chút
+            else: 
+                time.sleep(0.1) 
 
-        if not cpp_ready:
+        if not cpp_ready: # Xử lý nếu không READY sau timeout
             print("C++ process failed to report READY or reported an error within timeout. AI service might be unavailable.", file=sys.stderr)
-            if cpp_process and cpp_process.poll() is None:
+            if cpp_process and cpp_process.poll() is None: # Nếu vẫn chạy thì kill
                 print("C++ process is still running but did not signal READY. Killing.", file=sys.stderr)
-                try: cpp_process.kill()
+                try: cpp_process.kill(); cpp_process.wait(timeout=1) # Thêm wait
                 except Exception: pass
-            cpp_process = None
+            cpp_process = None # Đặt là None nếu không sẵn sàng hoặc đã kill
 
     except FileNotFoundError:
         print(f"FATAL ERROR: C++ executable not found at {C_PROCESS_EXEC}. Ensure it's built and path is correct in Dockerfile.", file=sys.stderr)
@@ -93,11 +88,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"An error occurred while starting C++ process: {e}", file=sys.stderr)
         if cpp_process and cpp_process.poll() is None:
-            try: cpp_process.kill()
+            try: cpp_process.kill(); cpp_process.wait(timeout=1)
             except Exception: pass
         cpp_process = None
     
-    yield # Ứng dụng FastAPI chính chạy ở đây
+    yield 
 
     print("App shutdown: Stopping C++ process...")
     if cpp_process and cpp_process.poll() is None:
@@ -105,13 +100,13 @@ async def lifespan(app: FastAPI):
             if cpp_process.stdin:
                 cpp_process.stdin.write("QUIT\n")
                 cpp_process.stdin.flush()
-            cpp_process.wait(timeout=5) # Chờ tối đa 5 giây
+            cpp_process.wait(timeout=5) 
             print("C++ process stopped gracefully.", file=sys.stderr)
         except subprocess.TimeoutExpired:
             print(f"C++ process did not exit after QUIT command and 5s timeout. Killing.", file=sys.stderr)
             try: cpp_process.kill()
             except Exception as e_kill: print(f"Error killing C++ process: {e_kill}", file=sys.stderr)
-        except Exception as e: # Các lỗi khác khi gửi QUIT hoặc flush
+        except Exception as e: 
             print(f"Error stopping C++ process gracefully: {e}. Attempting to kill.", file=sys.stderr)
             try: cpp_process.kill()
             except Exception as e_kill: print(f"Error killing C++ process: {e_kill}", file=sys.stderr)
@@ -138,35 +133,43 @@ async def health_check():
         return {"status": "error", "message": "Python server is running but C++ process is not available/failed to start."}
 
 
-# Model cho request từ client, khớp với GameState bạn cung cấp
+# SỬA LẠI PYDANTIC MODEL CHO REQUEST ĐỂ KHỚP YÊU CẦU CỦA NỀN TẢNG KIỂM THỬ
 class GameStateRequest(BaseModel):
     board: List[List[int]] 
     current_player: int    
-    valid_moves: Optional[List[int]] = None # Giữ lại nếu client có gửi, nhưng không bắt buộc
+    valid_moves: List[int] # Thêm lại trường này theo yêu cầu của API Format
+    is_new_game: bool      # Thêm trường này theo yêu cầu của API Format
 
 class AIResponse(BaseModel):
     move: int 
 
-@app.post("/api/get_ai_move", response_model=AIResponse)
+# Giữ nguyên đường dẫn endpoint này nếu nó đã hoạt động trên Render trước đó
+# Nếu nền tảng tự động thêm /api/connect4-move, bạn cần kiểm tra lại
+@app.post("/api/get_ai_move", response_model=AIResponse) 
 async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
     request_received_time = time.time()
     print(f"Received request for /api/get_ai_move for player {request_data.current_player}", file=sys.stderr)
+    # In ra is_new_game và valid_moves để kiểm tra (tùy chọn)
+    print(f"is_new_game: {request_data.is_new_game}", file=sys.stderr)
+    print(f"valid_moves from client: {request_data.valid_moves}", file=sys.stderr)
+
 
     if cpp_process is None or cpp_process.poll() is not None:
+        # ... (xử lý lỗi cpp_process không chạy như cũ) ...
         print("C++ process is not running or has exited. Cannot get AI move.", file=sys.stderr)
         raise HTTPException(status_code=503, detail="AI service backend not available or has exited.")
 
-    # --- Xác định các ô bị chặn từ board input ---
+
     removed_cells_found: List[Tuple[int, int]] = []
     for r_idx, row_content in enumerate(request_data.board):
         for c_idx, cell_val in enumerate(row_content):
             if cell_val == -1:
                 removed_cells_found.append((r_idx, c_idx))
     
-    r1, c1, r2, c2 = 0,0,0,0 # Giá trị mặc định an toàn
+    r1, c1, r2, c2 = 0,0,0,0 
     if len(removed_cells_found) == 1:
         r1, c1 = removed_cells_found[0]
-        r2, c2 = r1, c1 # Gửi tọa độ trùng nhau cho C++ Position constructor
+        r2, c2 = r1, c1 
         print(f"Found 1 removed cell: ({r1},{c1}). Sending as ({r1},{c1}) & ({r2},{c2}) to C++.", file=sys.stderr)
     elif len(removed_cells_found) >= 2:
         r1, c1 = removed_cells_found[0]
@@ -175,17 +178,10 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
              print(f"Warning: Found {len(removed_cells_found)} removed cells. Using first two: ({r1},{c1}) & ({r2},{c2}).", file=sys.stderr)
         else:
              print(f"Found 2 removed cells: ({r1},{c1}) & ({r2},{c2}).", file=sys.stderr)
-    else: # 0 ô bị chặn
+    else: 
         print(f"Found 0 removed cells. Using default ({r1},{c1}) & ({r2},{c2}) for C++.", file=sys.stderr)
-    # ------------------------------------------
-
+    
     try:
-        # Giao thức gửi sang C++:
-        # 1. Lệnh "GET_MOVE"
-        # 2. Tọa độ 2 ô bị chặn: r1 c1 r2 c2
-        # 3. ID người chơi sẽ đi: current_player
-        # 4. Bàn cờ: 6 dòng, mỗi dòng 7 số (0, 1, hoặc 2. Số -1 từ input sẽ được coi là 0 khi gửi)
-
         cpp_process.stdin.write("GET_MOVE\n")
         cpp_process.stdin.write(f"{r1} {c1} {r2} {c2}\n")
         cpp_process.stdin.write(f"{request_data.current_player}\n") 
@@ -199,22 +195,28 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
         
         print(f"Sent GET_MOVE to C++ for player {request_data.current_player} with effective removed_cells ({r1},{c1}) & ({r2},{c2})", file=sys.stderr)
 
-        # Đọc phản hồi từ C++ (có thể có timeout nếu muốn)
         response_line = ""
-        read_timeout = 10.0 # Timeout 10 giây để C++ trả lời (cho mỗi nước đi)
+        read_timeout = 10.0 
         read_start_time = time.time()
         
         while time.time() - read_start_time < read_timeout:
             if cpp_process.stdout:
-                response_line = cpp_process.stdout.readline().strip()
-                if response_line: # Nếu đọc được gì đó
-                    break 
-            if cpp_process.poll() is not None: # Kiểm tra C++ có bị crash giữa chừng
+                try: # Thêm try-except khi đọc stdout
+                    response_line = cpp_process.stdout.readline().strip()
+                    if response_line: 
+                        break 
+                except BlockingIOError: # Xử lý lỗi nếu stdout đang non-blocking và không có gì
+                    pass # Bỏ qua và thử lại
+                except Exception as e_read_stdout:
+                    print(f"Exception reading stdout: {e_read_stdout}", file=sys.stderr)
+                    # Có thể raise lỗi ở đây nếu muốn
+                    break # Thoát vòng lặp đọc nếu có lỗi nghiêm trọng
+            if cpp_process.poll() is not None: 
                 print("C++ process exited while Python was waiting for stdout.", file=sys.stderr)
                 raise HTTPException(status_code=500, detail="AI backend process crashed during move calculation.")
-            time.sleep(0.01) # Chờ một chút rồi thử đọc lại
+            time.sleep(0.01) 
         
-        if not response_line: # Nếu timeout mà không đọc được gì
+        if not response_line: 
             print(f"Timeout reading response from C++ after {read_timeout}s.", file=sys.stderr)
             raise HTTPException(status_code=504, detail="AI backend timeout.")
 
@@ -223,12 +225,24 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
         if response_line.startswith("MOVE "):
             try:
                 selected_move = int(response_line.split(" ")[1])
-                print(f"AI (Player {request_data.current_player}) chose column: {selected_move}", file=sys.stderr)
+                # Kiểm tra xem nước đi có nằm trong valid_moves (nếu client gửi) không
+                if request_data.valid_moves and selected_move not in request_data.valid_moves:
+                    print(f"CRITICAL WARNING: AI move {selected_move} IS NOT in valid_moves {request_data.valid_moves} from client!", file=sys.stderr)
+                    # Quyết định: Dùng nước của AI, hay dùng fallback, hay báo lỗi?
+                    # Để an toàn, nếu có valid_moves từ client và AI trả về nước không hợp lệ, có thể chọn fallback
+                    # raise HTTPException(status_code=500, detail=f"AI returned an invalid move {selected_move} not in {request_data.valid_moves}")
+                    # Hoặc, nếu bạn tin C++ Solver của mình hơn:
+                    print(f"AI (Player {request_data.current_player}) chose column: {selected_move} (ignoring client valid_moves check for now)", file=sys.stderr)
+
+                else: # Nước đi của AI hợp lệ hoặc client không gửi valid_moves
+                    print(f"AI (Player {request_data.current_player}) chose column: {selected_move}", file=sys.stderr)
+                
                 return AIResponse(move=selected_move)
+            # ... (các except và finally như cũ) ...
             except (ValueError, IndexError):
                 print(f"Error parsing MOVE from C++: '{response_line}'", file=sys.stderr)
                 raise HTTPException(status_code=500, detail="AI returned invalid move format.")
-        elif response_line.startswith("ERROR"):
+        elif response_line.startswith("ERROR"): # Các nhánh else if/else giữ nguyên
             print(f"C++ process reported an error: {response_line}", file=sys.stderr)
             raise HTTPException(status_code=500, detail=f"AI calculation error: {response_line}")
         else:
@@ -236,11 +250,10 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
             raise HTTPException(status_code=500, detail="AI returned unexpected response.")
 
     except Exception as e:
-        print(f"An unexpected error occurred in get_ai_move_endpoint: {e}", file=sys.stderr)
+        print(f"An unexpected error occurred in get_ai_move_endpoint: {type(e).__name__} - {e}", file=sys.stderr)
         stderr_dump = ""
         if cpp_process and cpp_process.stderr and not cpp_process.stderr.closed:
             try:
-                # Cố gắng đọc phần còn lại của stderr nếu có lỗi
                 stderr_dump = cpp_process.stderr.read() 
             except: pass 
         if stderr_dump: print(f"C++ STDERR during error processing: {stderr_dump}", file=sys.stderr)
@@ -253,4 +266,4 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000)) 
     print(f"Starting Uvicorn server on http://0.0.0.0:{port}")
-    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True) # Thêm reload=True cho dev
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
