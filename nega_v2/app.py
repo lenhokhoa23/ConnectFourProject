@@ -11,7 +11,7 @@ import sys
 import time 
 
 # --- Cấu hình C++ Process ---
-C_PROCESS_EXEC = "./InteractiveSolver.exe" # Đặt tên file thực thi C++ mới của bạn
+C_PROCESS_EXEC = "./InteractiveSolver" # Đặt tên file thực thi C++ mới của bạn
 cpp_process: Optional[subprocess.Popen] = None
 
 @asynccontextmanager

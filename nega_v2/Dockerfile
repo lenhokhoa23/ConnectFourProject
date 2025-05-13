@@ -17,11 +17,11 @@ COPY MoveSorter.hpp ./
 COPY TranspositionTable.hpp .
 # COPY uint_t.hpp ./ # Nếu có file riêng và cần thiết
 COPY Solver.cpp ./
-COPY interactive_solver_only_main.cpp ./ 
+COPY InteractiveSolver.cpp ./ 
 
 # Biên dịch C++ bên trong Docker
 # Đặt tên file output là 'interactive_solver' (không có .exe cho Linux)
-RUN g++ interactive_solver_only_main.cpp Solver.cpp -o interactive_solver -std=c++17 -m64 -O2
+RUN g++ InteractiveSolver.cpp Solver.cpp -o interactive_solver -std=c++17 -m64 -O2
 
 # Cấp quyền thực thi cho file vừa biên dịch
 RUN chmod +x ./interactive_solver 
