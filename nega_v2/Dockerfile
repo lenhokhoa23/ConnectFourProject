@@ -10,13 +10,14 @@ RUN apt-get update && apt-get install -y \
 
 
 ENV PYTHONUNBUFFERED=1
-
-COPY InteractiveSolver.exe ./
 COPY requirements.txt .
-RUN chmod +x ./InteractiveSolver.exe 
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
+COPY InteractiveSolver.exe ./
+RUN chmod +x ./InteractiveSolver.exe 
+
+COPY . .
 
 
 
