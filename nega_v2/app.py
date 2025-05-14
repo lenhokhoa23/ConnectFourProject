@@ -154,7 +154,25 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
     # In ra is_new_game và valid_moves để kiểm tra (tùy chọn)
     print(f"is_new_game: {request_data.is_new_game}", file=sys.stderr)
     print(f"valid_moves from client: {request_data.valid_moves}", file=sys.stderr)
-
+    print("Board state from client:", file=sys.stderr)
+    for r_idx, row_content in enumerate(request_data.board):
+        # Chuyển đổi giá trị số thành ký tự để dễ nhìn hơn
+        display_row = []
+        for cell_val in row_content:
+            if cell_val == 0:
+                display_row.append(".") # Ô trống
+            elif cell_val == 1:
+                display_row.append("X") # Player 1
+            elif cell_val == 2:
+                display_row.append("O") # Player 2
+            elif cell_val == -1:
+                display_row.append("#") # Ô bị chặn
+            else:
+                display_row.append(str(cell_val)) # Giá trị không xác định
+        print(f"  Row {r_idx}: {' '.join(display_row)}", file=sys.stderr)
+    print("="*50, file=sys.stderr)
+    sys.stderr.flush() # Đảm bảo log được in ra ngay
+    # --- KẾT THÚC PHẦN IN TRẠNG THÁI BÀN CỜ ---
 
     if cpp_process is None or cpp_process.poll() is not None:
         # ... (xử lý lỗi cpp_process không chạy như cũ) ...

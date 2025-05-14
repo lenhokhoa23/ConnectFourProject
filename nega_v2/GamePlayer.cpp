@@ -104,8 +104,8 @@ bool check_player_has_won(GameSolver::Connect4::Position::position_t player_boar
 int main() {
     std::cout << "Program start.\n" << std::flush; 
 
-    const int REMOVED_ROW1 = 0; 
-    const int REMOVED_COL1 = 0;
+    const int REMOVED_ROW1 = 2; 
+    const int REMOVED_COL1 = 2;
     const int REMOVED_ROW2 = 3; 
     const int REMOVED_COL2 = 4;
     std::cout << "Playing with fixed removed cells for book testing: (row=" << REMOVED_ROW1 << ",col=" << REMOVED_COL1 
