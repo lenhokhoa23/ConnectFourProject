@@ -185,7 +185,13 @@ async def get_ai_move_endpoint(request_data: GameStateRequest = Body(...)):
         for c_idx, cell_val in enumerate(row_content):
             if cell_val == -1:
                 removed_cells_found.append((r_idx, c_idx))
-    
+    if not removed_cells_found:
+        print("No removed cells found in the input board. Returning default move 0 immediately.", file=sys.stderr)
+        selected_move = 0 
+        end_time_req_early = time.time()
+        print(f"Total request processing time (early exit): {(end_time_req_early - request_received_time)*1000:.2f} ms", file=sys.stderr)
+        sys.stderr.flush()
+        return AIResponse(move=selected_move)
     r1, c1, r2, c2 = 0,0,0,0 
     if len(removed_cells_found) == 1:
         r1, c1 = removed_cells_found[0]
