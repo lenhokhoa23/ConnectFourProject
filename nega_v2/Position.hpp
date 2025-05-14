@@ -21,8 +21,9 @@ public:
     static constexpr int BOARD_PITCH_SIZE = WIDTH * (HEIGHT + 1); 
     using position_t = uint64_t;
 
-    static constexpr int MIN_SCORE = -(WIDTH*HEIGHT)/2 + 3; 
-    static constexpr int MAX_SCORE = (WIDTH*HEIGHT+1)/2 - 3;
+    static constexpr int PLAYABLE_CELLS = WIDTH * HEIGHT - 2; 
+    static constexpr int MIN_SCORE = -(PLAYABLE_CELLS / 2) + 3; 
+    static constexpr int MAX_SCORE = (PLAYABLE_CELLS + 1) / 2 - 3;
 
     static_assert(WIDTH < 10, "Board's width must be less than 10");
     static_assert(BOARD_PITCH_SIZE <= sizeof(position_t)*8, "Board does not fit into position_t bitmask");
