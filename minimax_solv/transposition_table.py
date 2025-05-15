@@ -29,26 +29,10 @@ def _next_prime(n: int) -> int:
             return prime
         prime += 2 # Check only odd numbers
 
-# --- Transposition Table Class ---
 class TranspositionTable:
-    """
-    A simple fixed-size hash map implementing a transposition table.
-
-    Uses modulo hashing and overwrites entries on collision.
-    Stores partial keys to potentially save memory, matching C++ behavior.
-    Values of 0 are treated as cache misses.
-    """
 
     def __init__(self, log_size: int, partial_key_bits: int = 32):
-        """
-        Initializes the Transposition Table.
 
-        Args:
-            log_size: Base-2 logarithm of the desired table size.
-                      The actual size will be the next prime >= 2^log_size.
-            partial_key_bits: Number of bits to store for the key (truncation).
-                              Must be positive.
-        """
         if not isinstance(log_size, int) or log_size < 0:
             raise ValueError("log_size must be a non-negative integer")
         if not isinstance(partial_key_bits, int) or partial_key_bits <= 0:
@@ -59,30 +43,21 @@ class TranspositionTable:
         self.partial_key_bits: int = partial_key_bits
         self.partial_key_mask: int = (1 << partial_key_bits) - 1
 
-        # Use None in keys list to indicate an empty slot, distinguishing from key 0.
         self.keys: List[Optional[int]] = [None] * self.size
-        # Use 0 in values list to indicate a cache miss, matching C++ get logic.
         self.values: List[int] = [0] * self.size
-        # print(f"TT Initialized: log_size={log_size}, target={target_size}, prime_size={self.size}, key_bits={partial_key_bits}") # Debug
 
     def _index(self, key: int) -> int:
         """Calculates the hash index for a given key."""
-        # Ensure key is non-negative before modulo if necessary, though Position.key() should be positive.
-        # return abs(key) % self.size
-        return key % self.size # Position.key() seems positive based on addition
+        return key % self.size 
 
     def reset(self):
         """Clears the transposition table, filling entries with default values."""
-        # print("TT Resetting...") # Debug
         self.keys = [None] * self.size
         self.values = [0] * self.size
 
     def put(self, key: int, value: int):
 
         if value == 0:
-            # Optional: Warn or raise error if trying to store 0, as it means 'miss' on get.
-            # print(f"Warning: Attempting to store value 0 for key {key} in TT.")
-            # return # Or proceed, knowing get will return 0 anyway.
             pass
 
         pos = self._index(key)
@@ -97,11 +72,8 @@ class TranspositionTable:
         pos = self._index(key)
         stored_partial_key = self.keys[pos]
 
-        # Calculate the partial key of the input key for comparison
         input_partial_key = key & self.partial_key_mask
 
-        # Check if the slot has been used (key is not None) AND
-        # if the stored partial key matches the input's partial key.
         if stored_partial_key is not None and stored_partial_key == input_partial_key:
             # print(f"TT Hit: key={key}, pos={pos}, value={self.values[pos]}") # Debug
             return self.values[pos]

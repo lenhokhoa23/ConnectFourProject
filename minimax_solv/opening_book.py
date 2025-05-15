@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Equivalent of OpeningBook.hpp from Connect4 Game Solver
+
 
 import sys
 import os
@@ -7,8 +6,6 @@ import struct
 import math
 from typing import Optional, Tuple
 
-# Assumes position.py and transposition_table.py are in the same package
-# Use relative imports if part of a package structure
 try:
     from .position import Position
     from .transposition_table import TranspositionTable
@@ -19,11 +16,7 @@ except ImportError:
 
 
 class OpeningBook:
-    """
-    Manages an opening book for Connect 4, stored in a binary file.
-    Uses a TranspositionTable internally to store positions and results.
-    Positions are queried using their symmetric key (key3).
-    """
+
 
     # Define format strings for struct packing/unpacking based on key bytes
     _KEY_FORMAT = {
@@ -36,13 +29,7 @@ class OpeningBook:
     _VALUE_FORMAT = '<B' # Always 1 byte unsigned char for value
 
     def __init__(self, width: int = Position.WIDTH, height: int = Position.HEIGHT):
-        """
-        Initializes an empty OpeningBook for a given board size.
 
-        Args:
-            width: Board width.
-            height: Board height.
-        """
         self.width: int = width
         self.height: int = height
         self.T: Optional[TranspositionTable] = None
@@ -51,25 +38,6 @@ class OpeningBook:
         self._partial_key_bytes: int = -1 # Store key bytes used when loading
 
     def load(self, filename: str) -> bool:
-        """
-        Loads the opening book data from a binary file.
-
-        File Format:
-        - 1 byte: board width
-        - 1 byte: board height
-        - 1 byte: max stored position depth
-        - 1 byte: partial key size in bytes (1, 2, 4, or 8)
-        - 1 byte: value size in bytes (must be 1)
-        - 1 byte: log_size = log2(approx table size).
-        - size * partial_key_bytes: key data
-        - size * value_bytes: value data
-
-        Args:
-            filename: Path to the opening book file.
-
-        Returns:
-            True if loading was successful, False otherwise.
-        """
         self.depth = -1 # Reset depth in case of failure
         self.T = None   # Reset table
         self._log_size = -1
@@ -137,11 +105,8 @@ class OpeningBook:
                 try:
                     unpacked_keys = struct.iter_unpack(key_fmt, key_data)
                     for i, (key_val,) in enumerate(unpacked_keys):
-                        # Store the raw partial key bytes interpretation
-                        # Handle potential 0 value if it was written for None
+
                         self.T.keys[i] = key_val if key_val != 0 else None # Assume 0 means empty slot if loaded
-                        # A better approach might be needed if 0 is a valid partial key
-                        # but given C++ memset(0), this seems plausible.
 
                 except struct.error as e:
                     raise IOError(f"Error unpacking key data: {e}")
@@ -305,9 +270,6 @@ if __name__ == "__main__":
         print(f"Log size: {book._log_size}")
         print(f"Partial key bytes: {book._partial_key_bytes}")
 
-        # Test Get (needs a Position object and key3 calculation)
-        # Create a dummy position that *might* hash to the stored key
-        # This part is hard without running the actual Position logic
         class DummyPosition:
             _moves = 5
             def nb_moves(self): return self._moves

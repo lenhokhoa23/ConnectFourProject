@@ -1,15 +1,11 @@
-# -*- coding: utf-8 -*-
-# File: play_game.py
-# Simple Connect 4 game interface to play against the AI Solver
 
 import sys
 import os
 import time
 import random
-import argparse # Import argparse để xử lý đối số dòng lệnh
+import argparse 
 from typing import Optional, List, Tuple
 
-# --- Import necessary classes ---
 try:
     if '.' not in sys.path:
          script_dir = os.path.dirname(__file__)
@@ -25,12 +21,11 @@ except FileNotFoundError:
      print("Error determining script directory. Ensure position.py and solver.py are accessible.", file=sys.stderr)
      sys.exit(1)
 
-# --- Helper Functions --- (get_player_move, get_ai_move, check_win, check_game_over, display_board giữ nguyên)
-# ... (Giữ nguyên các hàm helper ở đây) ...
+
 def display_board(p: Position):
     """Prints the current board state to the console."""
     print("\n" + "="*20)
-    print(p) # Uses the __str__ method of Position
+    print(p) 
     print("="*20 + "\n")
 
 def get_player_move(p: Position) -> int:
@@ -220,16 +215,11 @@ def play_game(human_starts: bool = True): # Thêm tham số human_starts, mặc 
     print("*"*30 + "\n")
 
 
-# --- Sửa đổi khối lệnh chính ---
 if __name__ == "__main__":
-    # Thiết lập argparse để nhận đối số dòng lệnh
     parser = argparse.ArgumentParser(description="Play Connect 4 against an AI.")
     parser.add_argument('--ai-first', action='store_true', # Thêm tùy chọn --ai-first
                         help='Let the AI make the first move.')
 
-    args = parser.parse_args() # Phân tích các đối số (ví dụ: --ai-first)
+    args = parser.parse_args() 
 
-    # Gọi hàm play_game với giá trị human_starts dựa trên đối số dòng lệnh
-    # Nếu --ai-first được cung cấp, args.ai_first là True -> human_starts là False
-    # Nếu không, args.ai_first là False -> human_starts là True (mặc định)
     play_game(human_starts=(not args.ai_first))

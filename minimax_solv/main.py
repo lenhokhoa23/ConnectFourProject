@@ -1,20 +1,12 @@
-# -*- coding: utf-8 -*-
-# Equivalent of main.cpp for the Connect4 Solver command-line interface
 
 import sys
 import argparse
-import os # For checking book file existence
-import time # To measure time if needed
+import os 
+import time 
 
-# --- Import necessary classes ---
-# Assumes position.py, solver.py are importable relative to this script
-# or available in Python path.
+
 try:
-    # Use relative imports if main.py is part of a package structure
-    # from .position import Position
-    # from .solver import Solver
-    # If running standalone, ensure other .py files are discoverable
-    if '.' not in sys.path: # Add current dir if not already there
+    if '.' not in sys.path: 
          script_dir = os.path.dirname(__file__)
          if script_dir:
               sys.path.insert(0, script_dir)
@@ -60,13 +52,11 @@ def run_solver():
          sys.exit(1)
 
     try:
-        solver = Solver() # __init__ handles TT init, sets book=None
+        solver = Solver()
     except Exception as e:
         print(f"Error initializing Solver: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Attempt to load the specified or default opening book
-    # solver.load_book handles internal logic and error messages
     solver.load_book(book_filename)
 
     # --- Process Input Lines ---
@@ -84,16 +74,11 @@ def run_solver():
         moves_played = p.play_seq(line)
 
         if moves_played != len(line):
-            # Error handling matches C++: print error, skip output line
             print(f"Line {line_num}: Invalid move sequence '{line}' (failed at move {moves_played + 1})", file=sys.stderr)
-            # Output an empty line for invalid input? C++ description suggests this.
-            # print()
         else:
-            # Valid position, process it
             solver.reset_node_count() # Reset count for each valid position
             start_time = time.perf_counter()
 
-            # Print original line first, no newline yet
             print(line, end="")
 
             if analyze_mode:
@@ -104,7 +89,6 @@ def run_solver():
                         print(f" {score}", end="")
                 except Exception as e:
                     print(f"\nError during analysis on line {line_num}: {e}", file=sys.stderr)
-                    # Decide how to handle error - skip rest of output?
                     print(" ANALYSIS_ERROR", end="") # Indicate error in output
 
             else: # Normal solve mode
@@ -119,18 +103,9 @@ def run_solver():
             end_time = time.perf_counter()
             time_us = (end_time - start_time) * 1_000_000
             total_time_us += time_us
-
-            # Add node count and time as mentioned in C++ description
-            # Note: C++ code itself didn't print these, but description did.
-            # Add them if desired.
-            # print(f" {solver.get_node_count()} {int(time_us)}", end="")
-
-            # Finish the line with a newline
             print()
 
     print(f"\nFinished processing {line_count} lines from stdin.", file=sys.stderr)
-    # Optional: Print total time
-    # print(f"Total processing time: {total_time_us / 1_000_000:.3f} seconds", file=sys.stderr)
 
 
 if __name__ == "__main__":
