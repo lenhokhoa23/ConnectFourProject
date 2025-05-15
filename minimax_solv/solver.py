@@ -1,23 +1,21 @@
-# ----- Thêm vào đầu file solver.py -----
 import sys
-import os # Để kiểm tra file book tồn tại
-from typing import Optional, List # Thêm Optional nếu chưa có
+import os 
+from typing import Optional, List 
 try:
-    # Đảm bảo import các lớp cần thiết
+
     from .position import Position
     from .opening_book import OpeningBook
     from .transposition_table import TranspositionTable
-    from .move_sorter import MoveSorter # Đảm bảo MoveSorter được import
+    from .move_sorter import MoveSorter 
 except ImportError:
     from position import Position
     from opening_book import OpeningBook
     from transposition_table import TranspositionTable
     from move_sorter import MoveSorter
 
-# ----- Bên trong lớp Solver trong solver.py -----
 
 class Solver:
-    INVALID_MOVE = -1000 # Giữ nguyên hoặc điều chỉnh nếu cần
+    INVALID_MOVE = -1000 
 
     def __init__(self):
         """Khởi tạo Solver."""
@@ -26,16 +24,13 @@ class Solver:
         for i in range(Position.WIDTH):
             self.column_order[i] = Position.WIDTH // 2 + (1 - 2 * (i % 2)) * (i + 1) // 2
 
-        # Khởi tạo TranspositionTable (ví dụ với log_size=24, key_bits=32)
-        # Bạn có thể muốn làm cho các tham số này có thể cấu hình được
+
         try:
              self.trans_table = TranspositionTable(log_size=24, partial_key_bits=32)
         except Exception as e:
              print(f"Critical Error: Failed to initialize TranspositionTable: {e}", file=sys.stderr)
-             # Có thể thoát hoặc đặt thành None và kiểm tra sau
              self.trans_table = None # Hoặc raise exception
 
-        # Khởi tạo OpeningBook là None ban đầu
         self.book: Optional[OpeningBook] = None
 
     def load_book(self, filename: str):
@@ -89,7 +84,6 @@ class Solver:
 
         self.node_count += 1
 
-        # --- Cải thiện chặn Alpha-Beta dựa trên điểm số có thể ---
         min_bound = -(Position.WIDTH * Position.HEIGHT - 2 - p.nb_moves()) // 2 # Điểm thấp nhất có thể (đối phương không thắng ngay)
         if alpha < min_bound:
             alpha = min_bound
@@ -100,14 +94,12 @@ class Solver:
             beta = max_bound
             if alpha >= beta: return beta
 
-        # --- Tra cứu Transposition Table ---
-        # Sử dụng key() chuẩn cho TT (không phải key3)
+
         key = p.key()
         # Kiểm tra TT có được khởi tạo không
         if self.trans_table:
             tt_value = self.trans_table.get(key)
-            if tt_value != 0: # Chỉ xử lý nếu có giá trị khác 0 (hit)
-                # Logic giải mã giá trị TT từ C++
+            if tt_value != 0: 
                 if tt_value > Position.MAX_SCORE - Position.MIN_SCORE + 1:  # Lower Bound stored
                     min_bound_tt = tt_value + 2 * Position.MIN_SCORE - Position.MAX_SCORE - 2
                     if alpha < min_bound_tt:
@@ -119,14 +111,10 @@ class Solver:
                         beta = max_bound_tt
                         if alpha >= beta: return beta
 
-        # --- Tra cứu Opening Book ---
-        # Sử dụng book.get(P) -> gọi P.key3() bên trong
-        # Thực hiện *sau* TT lookup và *trước* tạo nước đi, như trong C++ gốc
         if self.book and self.book.is_loaded:
             book_value = self.book.get(p) # Trả về giá trị đã chuẩn hóa hoặc 0
             if book_value != 0: # Nếu tìm thấy trong book và trong độ sâu cho phép
-                # Giá trị trong book đã được chuẩn hóa: score - MIN_SCORE + 1
-                # Chuyển đổi lại thành điểm thực tế:
+
                 actual_score = book_value + Position.MIN_SCORE - 1
                 # Trả về ngay lập tức vì book chứa kết quả chính xác
                 return actual_score
@@ -154,22 +142,19 @@ class Solver:
                      self.trans_table.put(key, tt_store_value)
                  return score # Prune
 
-            if score > alpha: # Tìm thấy nước đi tốt hơn
+            if score > alpha:
                 alpha = score
 
             next_move_mask = moves.get_next() # Lấy nước đi tiếp theo
 
-        # --- Lưu kết quả vào Transposition Table ---
-        if self.trans_table: # Lưu upper bound (alpha) vào TT nếu có TT
+        if self.trans_table: 
              tt_store_value = alpha - Position.MIN_SCORE + 1
              self.trans_table.put(key, tt_store_value)
 
-        return alpha # Trả về điểm tốt nhất tìm được trong khoảng [alpha, beta]
+        return alpha 
 
-    # --- Các phương thức solve, analyze giữ nguyên như trước ---
     def solve(self, p: Position, weak: bool = False) -> int:
-        # ... (giữ nguyên) ...
-        # Chỉ cần đảm bảo nó gọi self.negamax(...)
+
         if p.can_win_next():
              return (Position.WIDTH * Position.HEIGHT + 1 - p.nb_moves()) // 2
 
@@ -185,8 +170,6 @@ class Solver:
             if med <= 0 and min_score // 2 < med: med = min_score // 2
             elif med >= 0 and max_score // 2 > med: med = max_score // 2
 
-            # reset_node_count() should be outside solve loop if counting per position
-            # self.reset_node_count() # Maybe reset before the while loop? Or outside solve?
 
             r = self.negamax(p, med, med + 1)
 
@@ -197,8 +180,7 @@ class Solver:
 
 
     def analyze(self, p: Position, weak: bool = False) -> list[int]:
-         # ... (giữ nguyên) ...
-         # Chỉ cần đảm bảo nó gọi self.solve(...)
+
         scores = [Solver.INVALID_MOVE] * Position.WIDTH
         for col in range(Position.WIDTH):
             if p.can_play(col):
@@ -207,9 +189,7 @@ class Solver:
                 else:
                     p2 = p.copy()
                     p2.play_col(col)
-                    # reset_node_count() could be called before each solve if desired
-                    # self.reset_node_count()
+               
                     scores[col] = -self.solve(p2, weak)
         return scores
 
-# ----- Kết thúc cập nhật solver.py -----

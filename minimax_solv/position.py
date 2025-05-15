@@ -1,14 +1,10 @@
-# File: position.py (Phiên bản gốc, không Numba, không check_win bên trong)
 
 import sys
 import math
-from typing import Optional, List # Thêm nếu dùng type hints
+from typing import Optional, List
 
 class Position:
-    """
-    Stores a Connect 4 position using bitboards relative to the current player.
-    (Phiên bản gốc không tối ưu hóa Numba)
-    """
+
     WIDTH = 7
     HEIGHT = 6
     MIN_SCORE = -(WIDTH * HEIGHT) // 2 + 3
@@ -87,8 +83,6 @@ class Position:
         return _possible & ~(_opponent_win >> 1)
 
     def move_score(self, move: int) -> int:
-        # --- Chọn 1 phiên bản move_score bạn muốn ---
-        # Ví dụ: Phiên bản ưu tiên thắng/chặn/trung tâm
         if self.winning_position() & move: return 1000
         opponent_wins = self.opponent_winning_position()
         if opponent_wins & move: return 900
@@ -128,4 +122,3 @@ class Position:
         separator="\n"+"+".join(["-"]*Position.WIDTH);cols_label=" ".join(map(str,range(1,Position.WIDTH+1)))
         return "\n".join(rows)+separator+"\n"+cols_label+f"\nMoves: {self.moves}"
 
-# --- Hàm check_win độc lập KHÔNG ĐỊNH NGHĨA Ở ĐÂY ---

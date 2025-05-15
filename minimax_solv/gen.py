@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-# Equivalent of generator.cpp from Connect4 Game Solver
+
 
 import sys
 import math

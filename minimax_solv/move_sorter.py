@@ -1,13 +1,8 @@
-# -*- coding: utf-8 -*-
-# Equivalent of MoveSorter.hpp from Connect4 Game Solver
 
-# Using bisect to maintain sorted list efficiently, similar goal to C++ insertion sort
 import bisect
 import math
 from typing import Optional, List, Tuple
 
-# Conceptually depends on Position.WIDTH, but not strictly needed for import.
-# Assumes Position.WIDTH is relatively small (e.g., 7).
 
 class MoveSorter:
     """
@@ -21,8 +16,6 @@ class MoveSorter:
 
     def __init__(self):
         """Initializes an empty move sorter."""
-        # List of tuples: (score, move_bitmask)
-        # Kept sorted by score in ascending order.
         self.entries: List[Tuple[int, int]] = []
 
     def add(self, move: int, score: int):

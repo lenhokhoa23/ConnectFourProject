@@ -10,14 +10,12 @@
 
 using namespace GameSolver::Connect4;
 
-// BỎ HÀM TỰ DO reconstructPositionFromGUI Ở ĐÂY
 
 int main() {
     std::ios_base::sync_with_stdio(false); 
     std::cin.tie(NULL);
 
     Solver solver_instance; 
-    // solver_instance.reset(); // Không cần thiết nếu constructor đã reset hoặc không load sách
 
     std::cerr << "C++ Solver Backend (No Book): Initialized and ready." << std::endl;
     std::cerr << "READY" << std::endl; 
@@ -33,15 +31,12 @@ int main() {
             std::vector<std::vector<int>> board_gui(Position::HEIGHT, std::vector<int>(Position::WIDTH));
             bool input_error = false;
 
-            // Đọc thông tin ô bị chặn
             if (!(std::cin >> r1_removed >> c1_removed >> r2_removed >> c2_removed)) { input_error = true; }
             if (!input_error) std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); 
 
-            // Đọc ID người chơi hiện tại
             if (!input_error && !(std::cin >> player_id_to_move)) { input_error = true; }
             if (!input_error) std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
-            // Đọc bàn cờ
             if (!input_error) {
                 for (int r = 0; r < Position::HEIGHT; ++r) {
                     std::string row_str;
@@ -60,7 +55,6 @@ int main() {
                 continue; 
             }
             
-            // TẠO Position VÀ GỌI HÀM TÁI TẠO MỚI
             Position current_game_pos(r1_removed, c1_removed, r2_removed, c2_removed); 
             current_game_pos.reconstructBoardState(board_gui, player_id_to_move);
             
