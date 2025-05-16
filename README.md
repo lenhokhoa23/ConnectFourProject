@@ -20,7 +20,8 @@ Mục tiêu của dự án là xây dựng một hệ thống trí tuệ nhân t
 
 | Phiên bản | Tính năng chính | 
 |----------|-----------------|
-| `v1: MCTS` | Sử dụng giải thuật MCTS. |
+| `v1.0: MiniMax` | Sử dụng Minimax + Alphabeta Pruning. |
+| `v1.1: MCTS` | Sử dụng giải thuật MCTS. |
 | `v2.0: Beta Solver` | Triển khai thuật toán Solver được giải. | 
 | `v2.1: nega v1` | Cải tiến opening book của solver cho từng trường hợp. | 
 | `v2.2: nega v2` | Cải tiến thuật toán sử dụng cho luật chơi mới. | 
