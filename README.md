@@ -39,11 +39,16 @@ Mục tiêu của dự án là xây dựng một hệ thống trí tuệ nhân t
 - **Biểu diễn hiệu quả**  
   Áp dụng Bitboard encoding — biểu diễn trạng thái bàn cờ dưới dạng bitmask — giúp tiết kiệm bộ nhớ, tăng tốc độ thao tác bitwise và đơn giản hóa việc cập nhật trạng thái.
 
-- **Tái sử dụng kết quả**  
-  Sử dụng Transposition Table (bảng chuyển vị) để lưu trữ và tra cứu nhanh các trạng thái đã khám phá, tránh tính toán lặp, tiết kiệm thời gian.
+- **Định lý thặng dư Trung hoa**  
+  Áp dụng CRT trong triển khai Transposition Table (bảng chuyển vị) để lưu trữ và tra cứu nhanh các trạng thái đã khám phá.
 
-- **Tìm kiếm đa tầng**  
-  Kết hợp Iterative Deepening với Null Window Search nhằm điều chỉnh độ sâu tìm kiếm linh hoạt, tăng hiệu quả cắt tỉa và đảm bảo thời gian phản hồi nhất quán.
+- **Aspiration windows trong Iterative Deepening**  
+  Tăng dần độ sâu tìm kiếm theo từng bước, đồng thời lưu trữ kết quả của các lần tìm kiếm ở độ sâu nông vào bảng chuyển vị.
+  
+- **Giải thuật MTD(f)**  
+  - Thuật toán khởi tạo hai biên dưới và trên cho giá trị vị trí, rồi lặp cho đến khi hai biên gặp nhau:
+  - Lấy trung điểm của khoảng làm ngưỡng thử và “đẩy” ngưỡng đó về gần biên dưới để tăng hiệu quả cắt tỉa.
+  - Quá trình này thu hẹp khoảng giá trị bằng nhiều lần tìm kiếm null-window cho đến khi biên dưới = biên trên, chính là giá trị minimax chính xác.
 
 - **Ngăn chặn thua nhanh**  
   Triển khai cơ chế Anticipate Direct Losing Moves để phát hiện sớm các nước đi dẫn đến thất bại và chủ động chặn đứng, nâng cao khả năng phòng thủ của AI.
